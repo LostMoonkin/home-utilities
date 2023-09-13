@@ -1,0 +1,8 @@
+//
+// Created by moonkin on 2023/9/12.
+//
+
+#ifndef ESP32_FAN_CONTROLLER_SERVER_H
+#define ESP32_FAN_CONTROLLER_SERVER_H
+
+#endif //ESP32_FAN_CONTROLLER_SERVER_H
