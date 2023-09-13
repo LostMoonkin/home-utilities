@@ -7,9 +7,9 @@ import icmplib
 
 
 def load_config():
-    router_host = os.environ.get("TP-ROUTER_HOST")
-    auth_password = os.environ.get("TP-ROUTER_PASSWORD")
-    ipc_host = os.environ.get("TP-IPC_HOST")
+    router_host = os.environ.get("TP_ROUTER_HOST")
+    auth_password = os.environ.get("TP_ROUTER_PASSWORD")
+    ipc_host = os.environ.get("TP_IPC_HOST")
     if router_host and auth_password and ipc_host:
         print(f"use os env config: router_host={router_host}, auth={auth_password}, ipc_host={ipc_host}")
         return {
