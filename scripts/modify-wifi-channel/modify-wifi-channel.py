@@ -122,3 +122,5 @@ if __name__ == "__main__":
                 time.sleep(wait_time)
                 modify_24g_wifi_channel(conf['router_host'], stok, 6)
                 print(f'modify wifi channel to 6, finished')
+    else:
+        print(f'ipc server is alive.')
