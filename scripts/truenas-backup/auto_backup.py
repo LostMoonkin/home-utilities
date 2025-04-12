@@ -20,10 +20,13 @@ monitor_replication_task_timeout = 21600 # 6 Hours
 
 def check_system_ready(host_uri, api_key):
     system_ready_url = host_uri + "/system/ready"
-    r = requests.get(url=system_ready_url, headers={
-        "Authorization": "Bearer " + api_key,
-        "ContentType": "application/json"
-    }, timeout=2)
+    try:
+        r = requests.get(url=system_ready_url, headers={
+            "Authorization": "Bearer " + api_key,
+            "ContentType": "application/json"
+        }, timeout=2)
+    except requests.exceptions.Timeout:
+        return False
     return r.status_code == 200 and r.json() == True
 
 def get_replication_tasks(host_uri, api_key, task_name_list = []):
@@ -165,8 +168,11 @@ def run_backup():
     }
 
 if __name__ == '__main__':
-    res = run_backup()
-    if res["code"] != 0:
-        notify.send(res["title"] if "title" in res else "Truenas备份失败!!!","code: {0}, msg: {1}".format(res["code"], res["msg"]))
-    else:
-        notify.send("Truenas备份成功", res["msg"])
+    try:
+        res = run_backup()
+        if res["code"] != 0:
+            notify.send(res["title"] if "title" in res else "Truenas备份失败!!!","code: {0}, msg: {1}".format(res["code"], res["msg"]))
+        else:
+            notify.send("Truenas备份成功", res["msg"])
+    except Exception as e:
+        notify.send("Truenas备份异常!!!", str(e))
