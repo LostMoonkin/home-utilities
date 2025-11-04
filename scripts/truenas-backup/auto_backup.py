@@ -4,17 +4,19 @@ import notify
 import wol
 import time
 import datetime
+from truenas_api_client import Client
 
+source_ws_uri = "wss://192.168.1.3/api/current"
 source_uri = "http://192.168.1.3/api/v2.0"
 source_api_key = os.environ.get("source_nas_api_key")
 dest_uri = "http://192.168.1.13/api/v2.0"
 dest_api_key = os.environ.get("dest_nas_api_key")
 dest_mac = "2A:14:6C:11:0F:C8"
-replication_task_name_list = ["BIWIN_NV7400_bk", "KIOXIA-G3_bk"]
-wol_first_check_delay = 30
+replication_task_name_list = ["BIWIN_NV7400_bk", "KIOXIA-G3_bk", "HYS2TB_bk"]
+wol_first_check_delay = 10
 wol_check_interval = 5
 wol_timeout = 600
-monitor_replication_task_interval = 30
+monitor_replication_task_interval = 10
 monitor_replication_task_timeout = 21600 # 6 Hours
 
 
@@ -60,15 +62,18 @@ def get_replication_task(host_uri, api_key, task_id):
     return None
 
 def trigger_replication_task(host_uri, api_key, task_id):
-    url = f"{host_uri}/replication/id/{task_id}/run"
-    r = requests.post(url, data={}, headers={
-        "Authorization": "Bearer " + api_key,
-        "ContentType": "application/json"
-    }, timeout=10)
-    if r.status_code != 200:
-        print(f"Trigger replication task failed, task_id={task_id} code={r.status_code}, body={r.content}")
-        return
-    print(f"Trigger replication task success, task_id={task_id}")
+    with Client(uri=host_uri, verify_ssl=False) as c:
+        resp = c.call("auth.login_ex", {
+            "mechanism": "API_KEY_PLAIN",
+            "username": "truenas_admin",
+            "api_key": api_key
+            })
+      
+        if resp["response_type"] != "SUCCESS":
+            print(f"Trigger replication task failed, task_id={task_id} resp={resp}")
+            return
+        run_resp = c.call("replication.run", int(task_id))
+    print(f"Trigger replication task success, task_id={task_id}, log_id={run_resp}")
 
 def shutdown_system(host_uri, api_key):
     url = host_uri + "/system/shutdown"
@@ -122,7 +127,7 @@ def run_backup():
                 continue
         print("Trigger replication task: name={0}, id={1}".format(task["id"], task["name"]))
         triggered_task_id_list.append(task["id"])
-        trigger_replication_task(source_uri, source_api_key, task["id"])
+        trigger_replication_task(source_ws_uri, source_api_key, task["id"])
     # Monitor task status
     time.sleep(monitor_replication_task_interval)
     task_res = []
@@ -134,7 +139,7 @@ def run_backup():
             if task is not None and task["id"] not in finished_task_id_list:
                 if "state" in task:
                     state = task["state"]
-                    if state is not None and state["state"] in ["ERROR", "FINISHED"]:
+                    if state is not None and state["state"] in ["ERROR", "FINISHED", "SUCCESS"]:
                         finished_task_id_list.append(task["id"])
                         state_time = datetime.datetime.now()
                         if "datetime" in state and "$date" in state["datetime"]:
