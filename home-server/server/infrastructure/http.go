@@ -31,6 +31,7 @@ func HttpGet(targetURL string, params map[string]any, proxy string, timeout time
 			Proxy: http.ProxyURL(proxyURL),
 		}
 	}
+
 	reqURL, err := buildURL(targetURL, params)
 	if err != nil {
 		common.Log.Error().
@@ -40,7 +41,9 @@ func HttpGet(targetURL string, params map[string]any, proxy string, timeout time
 			Msg("Build request URL error.")
 		return nil, err
 	}
-	resp, err := client.Get(reqURL)
+	req, _ := http.NewRequest("GET", reqURL, nil)
+	req.Header.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+	resp, err := client.Do(req)
 	if err != nil {
 		common.Log.Error().
 			Err(err).

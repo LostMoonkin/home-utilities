@@ -9,11 +9,11 @@ import (
 )
 
 type Config struct {
-	ServerAddress        string `env:"SERVER_ADDRESS" envDefault:":8786"`
-	LogLevel             string `env:"LOG_LEVEL" envDefault:"DEBUG"`
-	EnableFileLogging    bool   `env:"ENABLE_FILE_LOGGING" envDefault:"false"`
-	HttpProxy            string `env:"HTTP_PROXY"`
-	ClashSubscriptionURL string `ENV:"CLASH_SUB_URL"`
+	ServerAddress         string   `env:"SERVER_ADDRESS" envDefault:":8786"`
+	LogLevel              string   `env:"LOG_LEVEL" envDefault:"DEBUG"`
+	EnableFileLogging     bool     `env:"ENABLE_FILE_LOGGING" envDefault:"false"`
+	HttpProxy             string   `env:"HTTP_PROXY"`
+	ClashSubscriptionURLs []string `env:"CLASH_SUB_URL"`
 }
 
 var appConfig Config
