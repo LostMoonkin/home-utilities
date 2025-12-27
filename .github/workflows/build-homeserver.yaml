@@ -48,7 +48,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./home-server/server/
-          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha # Use GitHub Actions cache
