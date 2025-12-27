@@ -62,8 +62,10 @@ func (s *ProxySubService) ClashToSurge(ctx echo.Context, typeFilters []string) (
 	}
 	var surgeProxies strings.Builder
 	for _, exporter := range validExporters {
-		if _, ok := filterSet[exporter.GetType()]; !ok {
-			continue
+		if len(filterSet) > 0 {
+			if _, ok := filterSet[exporter.GetType()]; !ok {
+				continue
+			}
 		}
 		proxy, err := exporter.ExportSurgeProxy()
 		if err != nil {
