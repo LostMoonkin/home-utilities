@@ -22,11 +22,14 @@ monitor_replication_task_timeout = 21600 # 6 Hours
 
 def check_system_ready(host_uri, api_key):
     system_ready_url = host_uri + "/system/ready"
-    r = requests.get(url=system_ready_url, headers={
-        "Authorization": "Bearer " + api_key,
-        "ContentType": "application/json"
-    }, timeout=2)
-    return r.status_code == 200 and r.json() == True
+    try:
+        r = requests.get(url=system_ready_url, headers={
+            "Authorization": "Bearer " + api_key,
+            "ContentType": "application/json"
+        }, timeout=2)
+        return r.status_code == 200 and r.json() == True
+    except Exception:
+        return False
 
 def get_replication_tasks(host_uri, api_key, task_name_list = []):
     url = host_uri + "/replication"
