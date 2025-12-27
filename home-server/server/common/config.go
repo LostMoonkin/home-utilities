@@ -22,7 +22,8 @@ var initConfigOnce sync.Once
 func SetupAppConfig() {
 	initConfigOnce.Do(func() {
 		if err := godotenv.Load(); err != nil {
-			panic(fmt.Sprintf("Get dotenv error: e=%s", err.Error()))
+			// there is no .env file in container runtime
+			fmt.Printf("Get dotenv error: e=%s\n", err.Error())
 		}
 
 		if err := env.Parse(&appConfig); err != nil {
