@@ -39,6 +39,8 @@ func initHandlers(app *echo.Echo) {
 	// Init handlers
 	proxySubHandler := handlers.NewProxySubHandler(services.NewProxySubService())
 	handlers.RegisterHandler(proxySubHandler)
+	gatewayConfHandler := handlers.NewGatewayConfHandler(services.NewGatewayConfService())
+	handlers.RegisterHandler(gatewayConfHandler)
 
 	// Register routers
 	handlers.SetupRouter(app)

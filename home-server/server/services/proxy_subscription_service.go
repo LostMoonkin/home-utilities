@@ -30,7 +30,7 @@ func (s *ProxySubService) ClashToSurge(ctx echo.Context, typeFilters []string) (
 		return "", err
 	}
 	var clashNodes []yaml.RawMessage
-	proxies.Read(bytes.NewReader(rawData), &clashNodes)
+	_ = proxies.Read(bytes.NewReader(rawData), &clashNodes)
 	if len(clashNodes) == 0 {
 		common.Log.Warn().Msg("Empty proxies list in subscription, please check you config.")
 		return "", nil
@@ -67,13 +67,14 @@ func (s *ProxySubService) ClashToSurge(ctx echo.Context, typeFilters []string) (
 				continue
 			}
 		}
-		proxy, err := exporter.ExportSurgeProxy()
+		surgeProxyConf, err := exporter.ExportSurgeProxy()
 		if err != nil {
-			common.Log.Warn().Any("proxy", proxy).Err(err).Msg("Export to surge proxy error, skip.")
+			common.Log.Warn().Any("surgeProxyConf", surgeProxyConf).Err(err).Msg("Export to surge surgeProxyConf error, skip.")
 			continue
 		}
-		if len(proxy) != 0 {
-			surgeProxies.WriteString((proxy + "\n"))
+		if len(surgeProxyConf) != 0 {
+			surgeProxies.WriteString(surgeProxyConf)
+			surgeProxies.WriteByte('\n')
 		}
 	}
 	return surgeProxies.String(), nil

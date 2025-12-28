@@ -14,6 +14,10 @@ type Config struct {
 	EnableFileLogging     bool     `env:"ENABLE_FILE_LOGGING" envDefault:"false"`
 	HttpProxy             string   `env:"HTTP_PROXY"`
 	ClashSubscriptionURLs []string `env:"CLASH_SUB_URL"`
+	SSHPrivateKey         string   `env:"SSH_PRIVATE_KEY"`
+	GatewaySSHAddress     string   `env:"GATEWAY_SSH_ADDRESS"`
+	GatewaySSHUser        string   `env:"GATEWAY_SSH_USER"`
+	GatewayConfigPath     string   `env:"GATEWAY_CONFIG_PATH"`
 }
 
 var appConfig Config
@@ -25,10 +29,10 @@ func SetupAppConfig() {
 			// there is no .env file in container runtime
 			fmt.Printf("Get dotenv error: e=%s\n", err.Error())
 		}
-
 		if err := env.Parse(&appConfig); err != nil {
 			panic(fmt.Sprintf("Parse env config error: e=%s", err.Error()))
 		}
+		fmt.Printf("Parse env config: e=%+v\n", appConfig)
 	})
 }
 

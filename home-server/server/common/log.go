@@ -47,7 +47,7 @@ func InitLogger() {
 			return filepath.Base(file) + ":" + strconv.Itoa(line)
 		}
 		zlogger := zerolog.New(mw).With().Timestamp().Caller().Logger()
-		zlogger.Debug().Msg("Logging configured.")
+		zlogger.Debug().Msg("Log configured.")
 		Log = &Logger{&zlogger}
 	})
 }
