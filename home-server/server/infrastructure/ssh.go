@@ -2,8 +2,11 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"homeserver/common"
+	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -75,6 +78,33 @@ func (s *SSHClientWrapper) keepAlive() {
 			s.lock.Release(1)
 		}
 	}
+}
+
+func (s *SSHClientWrapper) FileExists(path string) (bool, error) {
+	_, err := s.SFTPClient.Lstat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	// For other errors (e.g., permissions, network issues), return the error
+	return false, err
+}
+
+func (s *SSHClientWrapper) ReadFile(path string) ([]byte, error) {
+	f, err := s.SFTPClient.OpenFile(path, os.O_RDONLY)
+	if err != nil {
+		common.Log.Error().Err(err).Str("path", path).Msg("open file error.")
+		return nil, err
+	}
+	defer f.Close()
+	content, err := io.ReadAll(f)
+	if err != nil {
+		common.Log.Error().Err(err).Str("path", path).Msg("read file content error.")
+		return nil, err
+	}
+	return content, nil
 }
 
 func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) (*SSHClientWrapper, error) {

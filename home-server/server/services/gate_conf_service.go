@@ -1,28 +1,28 @@
 package services
 
 import (
+	"bytes"
 	"encoding/base64"
 	"homeserver/common"
 	"homeserver/context"
-	"homeserver/infrastructure"
 	"homeserver/models/gateway"
 	"homeserver/models/response"
 	"io"
-	"os"
 	"path"
 	"strings"
-
-	"github.com/labstack/echo/v4"
+	"sync"
 )
 
-type GatewayConfService struct{}
-
-func NewGatewayConfService() *GatewayConfService {
-	return &GatewayConfService{}
+type GatewayConfService struct {
+	fileLocks sync.Map
 }
 
-func (s *GatewayConfService) ListAllConfigs(ctx context.GContext) (*response.APIResponse[*[]gateway.ConfigFileInfo], error) {
-	client, err := getSSHClient(ctx)
+func NewGatewayConfService() *GatewayConfService {
+	return &GatewayConfService{fileLocks: sync.Map{}}
+}
+
+func (s *GatewayConfService) ListAll(ctx context.GContext) (*response.APIResponse, error) {
+	client, err := ctx.GetGatewaySSHClient()
 	if err != nil {
 		return nil, err
 	}
@@ -47,42 +47,82 @@ func (s *GatewayConfService) ListAllConfigs(ctx context.GContext) (*response.API
 	return response.Success(&fileList), nil
 }
 
-func (s *GatewayConfService) GetConfContent(ctx context.GContext, nameList []string) (*response.APIResponse[map[string]string], error) {
-	client, err := getSSHClient(ctx)
+func (s *GatewayConfService) Get(ctx context.GContext, nameList []string) (*response.APIResponse, error) {
+	client, err := ctx.GetGatewaySSHClient()
 	if err != nil {
-		common.Log.Error().Err(err).Msg("Get ssh client error.")
 		return nil, err
 	}
 	resp := make(map[string]string)
 	for _, name := range nameList {
-		filePath := path.Join(ctx.GetAppConfig().GatewayConfigPath, name)
-		f, err := client.SFTPClient.OpenFile(filePath, os.O_RDONLY)
-		if err != nil {
-			common.Log.Error().Err(err).Str("path", filePath).Msg("open file error.")
-			return nil, err
+		if !isValidFilename(name) {
+			common.Log.Warn().Str("filename", name).Msg("invalid filename.")
 		}
-		content, err := io.ReadAll(f)
+		content, err := client.ReadFile(path.Join(ctx.GetAppConfig().GatewayConfigPath, name))
 		if err != nil {
-			common.Log.Error().Err(err).Str("path", filePath).Msg("read file content error.")
-			_ = f.Close()
 			return nil, err
 		}
 		resp[name] = base64.StdEncoding.EncodeToString(content)
-		_ = f.Close()
 	}
 	return response.Success(resp), nil
 }
 
-func (s *GatewayConfService) UpdateConfig(ctx echo.Context, name, current, expected string) error {
+func (s *GatewayConfService) Create(ctx context.GContext, name, content string) (*response.APIResponse, error) {
+	if !isValidFilename(name) {
+		return response.Fail(-1, "invalid config name"), nil
+	}
+	// decode content
+	rawContent, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		common.Log.Error().Err(err).Str("name", name).Str("content", content).Msg("base64 decode content error")
+		return response.Fail(-1, "invalid config content"), nil
+	}
+	// lock current file
+	rawLock, _ := s.fileLocks.LoadOrStore(name, &sync.Mutex{})
+	lock := rawLock.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	client, err := ctx.GetGatewaySSHClient()
+	if err != nil {
+		return nil, err
+	}
+	filePath := path.Join(ctx.GetAppConfig().GatewayConfigPath, name)
+	// check file exists
+	ok, err := client.FileExists(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return response.Fail(-1, "config file already exists."), nil
+	}
+	f, err := client.SFTPClient.Create(filePath)
+	if err != nil {
+		common.Log.Error().Err(err).Str("path", filePath).Msg("create file error.")
+		return nil, err
+	}
+	defer f.Close()
+	if _, err = io.Copy(f, bytes.NewReader(rawContent)); err != nil {
+		common.Log.Error().Err(err).Str("path", filePath).Msg("write content error.")
+		return nil, err
+	}
+	return response.Success(nil), nil
+}
+
+func (s *GatewayConfService) Update(ctx context.GContext, name, current, expected string) error {
 	return nil
 }
 
-func getSSHClient(ctx context.GContext) (*infrastructure.SSHClientWrapper, error) {
-	config := ctx.GetAppConfig()
-	client, err := infrastructure.GetSSHClient(ctx.Request().Context(), config.GatewaySSHUser, config.GatewaySSHAddress, []byte(config.SSHPrivateKey))
-	if err != nil {
-		common.Log.Error().Err(err).Msg("Get ssh client error.")
-		return nil, err
+func isValidFilename(filename string) bool {
+	// Filenames cannot be empty strings
+	if filename == "" {
+		return false
 	}
-	return client, nil
+	// The null byte is the only universally invalid character
+	if strings.ContainsRune(filename, '\000') {
+		return false
+	}
+	// The forward slash is the path separator and cannot be in a filename
+	if strings.ContainsRune(filename, '/') {
+		return false
+	}
+	return true
 }

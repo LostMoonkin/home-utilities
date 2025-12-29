@@ -38,8 +38,7 @@ func (s *ProxySubHandler) GetMiddlewareFunc() []echo.MiddlewareFunc {
 
 func (s *ProxySubHandler) HandleClashToSurge(ctx context.GContext) error {
 	param := &Clash2SurgeParam{}
-	err := echo.QueryParamsBinder(ctx).Strings("type", &param.typeFilters).BindError()
-	if err != nil {
+	if err := echo.QueryParamsBinder(ctx).Strings("type", &param.typeFilters).BindError(); err != nil {
 		common.Log.Warn().Err(err).Str("param", ctx.Request().URL.RawQuery).Msg("Bind query param error.")
 		return ctx.NoContent(http.StatusBadRequest)
 	}

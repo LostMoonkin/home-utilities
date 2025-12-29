@@ -3,15 +3,15 @@ package handlers
 import (
 	"homeserver/common"
 	"homeserver/context"
+	"homeserver/models/gateway"
 	"homeserver/services"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
-type GetContentParam struct {
-	names []string
-}
 type GatewayConfHandler struct {
 	service *services.GatewayConfService
 }
@@ -21,8 +21,12 @@ func NewGatewayConfHandler(service *services.GatewayConfService) *GatewayConfHan
 }
 
 func (s *GatewayConfHandler) RegisterRouter(group *echo.Group) error {
-	group.GET("/listconf", wrapHandlerContext(s.ListAllConfigs))
-	group.GET("/confdetail", wrapHandlerContext(s.GetConfContent))
+	group.GET("/conf/list", wrapHandlerContext(s.ListAll))
+	group.GET("/conf", wrapHandlerContext(s.Get))
+	group.POST("/conf", wrapHandlerContext(s.Create))
+	group.PUT("/conf", wrapHandlerContext(s.Update))
+	group.DELETE("/conf", wrapHandlerContext(s.Delete))
+	group.POST("/restart", wrapHandlerContext(s.RestartGateway))
 	return nil
 }
 
@@ -31,32 +35,61 @@ func (s *GatewayConfHandler) GetAPIPrefix() string {
 }
 
 func (s *GatewayConfHandler) GetMiddlewareFunc() []echo.MiddlewareFunc {
-	return []echo.MiddlewareFunc{}
+	return []echo.MiddlewareFunc{
+		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+			Timeout: 10 * time.Second,
+		}),
+	}
 }
 
-func (s *GatewayConfHandler) ListAllConfigs(ctx context.GContext) error {
-	allConfFiles, err := s.service.ListAllConfigs(ctx)
+func (s *GatewayConfHandler) Create(ctx context.GContext) error {
+	req := &gateway.CreateConfigRequest{}
+	if err := ctx.Bind(req); err != nil {
+		common.Log.Error().Err(err).Msg("bind request body error")
+		return ctx.NoContent(http.StatusBadRequest)
+	}
+	resp, err := s.service.Create(ctx, req.Name, req.Content)
 	if err != nil {
-		common.Log.Error().Err(err).Msg("ListAllConfigs error.")
+		common.Log.Error().Err(err).Msg("create config error")
+		return ctx.NoContent(http.StatusInternalServerError)
+	}
+	return ctx.JSON(http.StatusOK, resp)
+}
+
+func (s *GatewayConfHandler) Update(ctx context.GContext) error {
+	return nil
+}
+
+func (s *GatewayConfHandler) Delete(ctx context.GContext) error {
+	return nil
+}
+
+func (s *GatewayConfHandler) RestartGateway(ctx context.GContext) error {
+	return nil
+}
+
+func (s *GatewayConfHandler) ListAll(ctx context.GContext) error {
+	allConfFiles, err := s.service.ListAll(ctx)
+	if err != nil {
+		common.Log.Error().Err(err).Msg("ListAll error.")
 		return ctx.NoContent(http.StatusInternalServerError)
 	}
 	return ctx.JSON(http.StatusOK, allConfFiles)
 }
 
-func (s *GatewayConfHandler) GetConfContent(ctx context.GContext) error {
-	param := &GetContentParam{}
-	err := echo.QueryParamsBinder(ctx).Strings("name", &param.names).BindError()
-	if err != nil {
+func (s *GatewayConfHandler) Get(ctx context.GContext) error {
+	var nameList []string
+	if err := echo.QueryParamsBinder(ctx).Strings("name", &nameList).BindError(); err != nil {
 		common.Log.Warn().Err(err).Str("param", ctx.Request().URL.RawQuery).Msg("Bind query param error.")
 		return ctx.NoContent(http.StatusBadRequest)
 	}
-	if len(param.names) == 0 {
+	if len(nameList) == 0 {
 		common.Log.Warn().Str("param", ctx.Request().URL.RawQuery).Msg("Empty query param.")
 		return ctx.NoContent(http.StatusBadRequest)
 	}
-	resp, err := s.service.GetConfContent(ctx, param.names)
+	resp, err := s.service.Get(ctx, nameList)
 	if err != nil {
-		common.Log.Error().Err(err).Msg("ListAllConfigs error.")
+		common.Log.Error().Err(err).Msg("ListAll error.")
 		return ctx.NoContent(http.StatusInternalServerError)
 	}
 	return ctx.JSON(http.StatusOK, resp)
