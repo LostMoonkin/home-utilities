@@ -12,8 +12,8 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const DEFAULT_LOCK_TIMEOUT = time.Duration(5) * time.Second
-const DEFAULT_IDLE_TIMEOUT = time.Duration(10) * time.Minute
+const DefaultLockTimeout = time.Duration(5) * time.Second
+const DefaultIdleTimeout = time.Duration(10) * time.Minute
 
 type SSHClientWrapper struct {
 	*ssh.Client
@@ -33,18 +33,21 @@ func init() {
 }
 
 func (s *SSHClientWrapper) Close() {
-	s.lock.Acquire(context.Background(), 1)
+	if err := s.lock.Acquire(context.Background(), 1); err != nil {
+		common.Log.Warn().Err(err).Msg("failed to acquire lock")
+		return
+	}
 	defer s.lock.Release(1)
 	s.closeInternal()
 }
 
 func (s *SSHClientWrapper) closeInternal() {
 	if s.Client != nil {
-		s.Client.Close()
+		_ = s.Client.Close()
 		s.Client = nil
 	}
 	if s.SFTPClient != nil {
-		s.SFTPClient.Close()
+		_ = s.SFTPClient.Close()
 		s.SFTPClient = nil
 	}
 	clientMap.Delete(s.Key)
@@ -80,7 +83,7 @@ func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) 
 	rawLock, _ := lockMap.LoadOrStore(key, semaphore.NewWeighted(1))
 	lock := rawLock.(*semaphore.Weighted)
 	// acquire lock with timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, DEFAULT_LOCK_TIMEOUT)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultLockTimeout)
 	defer cancel()
 	if err := lock.Acquire(timeoutCtx, 1); err != nil {
 		// timeout
@@ -134,7 +137,7 @@ func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) 
 		SFTPClient:     sftpClient,
 		Key:            key,
 		lastUsed:       time.Now(),
-		MaxIdleTimeout: DEFAULT_IDLE_TIMEOUT,
+		MaxIdleTimeout: DefaultIdleTimeout,
 		lock:           lock,
 	}
 	clientMap.Store(key, warpper)

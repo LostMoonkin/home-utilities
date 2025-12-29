@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-const DEFAULT_TIMEOUT = time.Duration(10) * time.Second
+const DefaultTimeout = time.Duration(10) * time.Second
 
 func HttpGet(targetURL string, params map[string]any, proxy string, timeout time.Duration) ([]byte, error) {
 	if timeout == 0 {
-		timeout = DEFAULT_TIMEOUT
+		timeout = DefaultTimeout
 	}
 	client := &http.Client{
 		Timeout: timeout,

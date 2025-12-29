@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"encoding/base64"
 	"homeserver/common"
+	"homeserver/context"
 	"homeserver/services"
 	"net/http"
 
@@ -21,8 +21,8 @@ func NewGatewayConfHandler(service *services.GatewayConfService) *GatewayConfHan
 }
 
 func (s *GatewayConfHandler) RegisterRouter(group *echo.Group) error {
-	group.GET("/listconf", s.ListAllConfs)
-	group.GET("/confdetail", s.GetConfContent)
+	group.GET("/listconf", wrapHandlerContext(s.ListAllConfigs))
+	group.GET("/confdetail", wrapHandlerContext(s.GetConfContent))
 	return nil
 }
 
@@ -30,34 +30,34 @@ func (s *GatewayConfHandler) GetAPIPrefix() string {
 	return "/api/gateway"
 }
 
-func (s *GatewayConfHandler) GetMiddlewareFuncs() []echo.MiddlewareFunc {
+func (s *GatewayConfHandler) GetMiddlewareFunc() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{}
 }
 
-func (s *GatewayConfHandler) ListAllConfs(ctx echo.Context) error {
-	allConfFiles, err := s.service.ListAllConfs(ctx)
+func (s *GatewayConfHandler) ListAllConfigs(ctx context.GContext) error {
+	allConfFiles, err := s.service.ListAllConfigs(ctx)
 	if err != nil {
-		common.Log.Error().Err(err).Msg("ListAllConfs error.")
+		common.Log.Error().Err(err).Msg("ListAllConfigs error.")
 		return ctx.NoContent(http.StatusInternalServerError)
 	}
 	return ctx.JSON(http.StatusOK, allConfFiles)
 }
 
-func (s *GatewayConfHandler) GetConfContent(ctx echo.Context) error {
+func (s *GatewayConfHandler) GetConfContent(ctx context.GContext) error {
 	param := &GetContentParam{}
 	err := echo.QueryParamsBinder(ctx).Strings("name", &param.names).BindError()
 	if err != nil {
 		common.Log.Warn().Err(err).Str("param", ctx.Request().URL.RawQuery).Msg("Bind query param error.")
 		return ctx.NoContent(http.StatusBadRequest)
 	}
-	contentMap, err := s.service.GetConfContent(ctx, param.names)
-	if err != nil {
-		common.Log.Error().Err(err).Msg("ListAllConfs error.")
-		return ctx.NoContent(http.StatusInternalServerError)
+	if len(param.names) == 0 {
+		common.Log.Warn().Str("param", ctx.Request().URL.RawQuery).Msg("Empty query param.")
+		return ctx.NoContent(http.StatusBadRequest)
 	}
-	resp := make(map[string]string)
-	for name, content := range contentMap {
-		resp[name] = base64.StdEncoding.EncodeToString(content)
+	resp, err := s.service.GetConfContent(ctx, param.names)
+	if err != nil {
+		common.Log.Error().Err(err).Msg("ListAllConfigs error.")
+		return ctx.NoContent(http.StatusInternalServerError)
 	}
 	return ctx.JSON(http.StatusOK, resp)
 }

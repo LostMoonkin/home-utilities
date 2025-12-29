@@ -3,12 +3,12 @@ package services
 import (
 	"bytes"
 	"homeserver/common"
+	"homeserver/context"
 	"homeserver/infrastructure"
 	"homeserver/models/proxy"
 	"strings"
 
 	"github.com/goccy/go-yaml"
-	"github.com/labstack/echo/v4"
 	"github.com/tidwall/gjson"
 )
 
@@ -18,8 +18,8 @@ func NewProxySubService() *ProxySubService {
 	return &ProxySubService{}
 }
 
-func (s *ProxySubService) ClashToSurge(ctx echo.Context, typeFilters []string) (string, error) {
-	config := common.GetAppConfig()
+func (s *ProxySubService) ClashToSurge(ctx context.GContext, typeFilters []string) (string, error) {
+	config := ctx.GetAppConfig()
 	rawData, err := infrastructure.HttpGet(config.ClashSubscriptionURLs[0], map[string]any{}, config.HttpProxy, 0)
 	if err != nil {
 		return "", err

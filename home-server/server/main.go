@@ -2,6 +2,7 @@ package main
 
 import (
 	"homeserver/common"
+	"homeserver/context"
 	"homeserver/handlers"
 	"homeserver/services"
 	"net/http"
@@ -15,6 +16,12 @@ func main() {
 	common.InitLogger()
 
 	app := echo.New()
+	app.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			gCtx := context.GContext{Context: c}
+			return next(gCtx)
+		}
+	})
 	app.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogURI:     true,
 		LogStatus:  true,
