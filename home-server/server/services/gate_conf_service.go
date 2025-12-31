@@ -8,6 +8,7 @@ import (
 	"homeserver/models/gateway"
 	"homeserver/models/response"
 	"io"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -107,8 +108,45 @@ func (s *GatewayConfService) Create(ctx context.GContext, name, content string) 
 	return response.Success(nil), nil
 }
 
-func (s *GatewayConfService) Update(ctx context.GContext, name, current, expected string) error {
-	return nil
+func (s *GatewayConfService) Update(ctx context.GContext, name, current, expected string) (*response.APIResponse, error) {
+	if !isValidFilename(name) {
+		return response.Fail(-1, "invalid config name"), nil
+	}
+	client, err := ctx.GetGatewaySSHClient()
+	if err != nil {
+		return nil, err
+	}
+	// lock current file
+	rawLock, _ := s.fileLocks.LoadOrStore(name, &sync.Mutex{})
+	lock := rawLock.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	filePath := path.Join(ctx.GetAppConfig().GatewayConfigPath, name)
+	rawContent, err := client.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	// check content
+	content := base64.StdEncoding.EncodeToString(rawContent)
+	if content != current {
+		return response.Fail(-1, "config content has been modified."), nil
+	}
+	// update content
+	expectedRawContent, err := base64.StdEncoding.DecodeString(expected)
+	if err != nil {
+		common.Log.Error().Err(err).Str("path", filePath).Str("expected", expected).Msg("base64 decode content error")
+		return response.Fail(-1, "invalid expected content."), nil
+	}
+	f, err := client.SFTPClient.OpenFile(filePath, os.O_RDWR)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if _, err = io.Copy(f, bytes.NewReader(expectedRawContent)); err != nil {
+		common.Log.Error().Err(err).Str("path", filePath).Msg("write content error.")
+		return nil, err
+	}
+	return response.Success(nil), nil
 }
 
 func isValidFilename(filename string) bool {

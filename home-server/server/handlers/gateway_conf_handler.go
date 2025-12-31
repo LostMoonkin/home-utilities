@@ -26,7 +26,7 @@ func (s *GatewayConfHandler) RegisterRouter(group *echo.Group) error {
 	group.POST("/conf", wrapHandlerContext(s.Create))
 	group.PUT("/conf", wrapHandlerContext(s.Update))
 	group.DELETE("/conf", wrapHandlerContext(s.Delete))
-	group.POST("/restart", wrapHandlerContext(s.RestartGateway))
+	group.POST("/apply", wrapHandlerContext(s.ApplyChange))
 	return nil
 }
 
@@ -57,14 +57,24 @@ func (s *GatewayConfHandler) Create(ctx context.GContext) error {
 }
 
 func (s *GatewayConfHandler) Update(ctx context.GContext) error {
-	return nil
+	req := &gateway.UpdateConfigRequest{}
+	if err := ctx.Bind(req); err != nil {
+		common.Log.Error().Err(err).Msg("bind request body error")
+		return ctx.NoContent(http.StatusBadRequest)
+	}
+	resp, err := s.service.Update(ctx, req.Name, req.CurrentContent, req.ExpectedContent)
+	if err != nil {
+		common.Log.Error().Err(err).Msg("update config error")
+		return ctx.NoContent(http.StatusInternalServerError)
+	}
+	return ctx.JSON(http.StatusOK, resp)
 }
 
 func (s *GatewayConfHandler) Delete(ctx context.GContext) error {
 	return nil
 }
 
-func (s *GatewayConfHandler) RestartGateway(ctx context.GContext) error {
+func (s *GatewayConfHandler) ApplyChange(ctx context.GContext) error {
 	return nil
 }
 
