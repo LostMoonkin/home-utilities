@@ -15,11 +15,12 @@ import (
 )
 
 type GatewayConfService struct {
-	fileLocks sync.Map
+	fileLocks   sync.Map
+	restartLock sync.Mutex
 }
 
 func NewGatewayConfService() *GatewayConfService {
-	return &GatewayConfService{fileLocks: sync.Map{}}
+	return &GatewayConfService{fileLocks: sync.Map{}, restartLock: sync.Mutex{}}
 }
 
 func (s *GatewayConfService) ListAll(ctx context.GContext) (*response.APIResponse, error) {
@@ -145,6 +146,36 @@ func (s *GatewayConfService) Update(ctx context.GContext, name, current, expecte
 	if _, err = io.Copy(f, bytes.NewReader(expectedRawContent)); err != nil {
 		common.Log.Error().Err(err).Str("path", filePath).Msg("write content error.")
 		return nil, err
+	}
+	return response.Success(nil), nil
+}
+
+func (s *GatewayConfService) Restart(ctx context.GContext) (*response.APIResponse, error) {
+	if !s.restartLock.TryLock() {
+		common.Log.Warn().Msg("restartLock is already locked")
+		return response.Fail(-1, "Process is locked, please try later."), nil
+	}
+	defer s.restartLock.Unlock()
+	client, err := ctx.GetGatewaySSHClient()
+	if err != nil {
+		return nil, err
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		common.Log.Error().Err(err).Msg("new session error")
+		return nil, err
+	}
+	defer session.Close()
+	cmd := "/usr/local/bin/docker restart gateway"
+	output, err := session.CombinedOutput(cmd)
+	if err != nil {
+		common.Log.Error().Err(err).Msg("docker restart command error")
+		return nil, err
+	}
+	common.Log.Debug().Str("output", string(output)).Msg("docker restart command output")
+	if !strings.Contains(string(output), "gateway") {
+		common.Log.Warn().Bytes("output", output).Msg("docker restart command output does not contain 'gateway'")
+		return response.Fail(-1, "restart gateway failed."), nil
 	}
 	return response.Success(nil), nil
 }

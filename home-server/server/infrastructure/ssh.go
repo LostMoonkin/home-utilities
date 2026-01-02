@@ -128,6 +128,8 @@ func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) 
 		client := val.(*SSHClientWrapper)
 		_, err := client.SFTPClient.Getwd()
 		if err == nil {
+			// update last used record.
+			client.lastUsed = time.Now()
 			return client, nil
 		}
 		common.Log.Warn().Str("key", key).Err(err).Msg("Connection is dead.")
@@ -162,7 +164,7 @@ func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) 
 	}
 
 	// save client
-	warpper := &SSHClientWrapper{
+	wrapper := &SSHClientWrapper{
 		Client:         client,
 		SFTPClient:     sftpClient,
 		Key:            key,
@@ -170,7 +172,7 @@ func GetSSHClient(ctx context.Context, user, address string, privateKey []byte) 
 		MaxIdleTimeout: DefaultIdleTimeout,
 		lock:           lock,
 	}
-	clientMap.Store(key, warpper)
-	go warpper.keepAlive()
-	return warpper, nil
+	clientMap.Store(key, wrapper)
+	go wrapper.keepAlive()
+	return wrapper, nil
 }

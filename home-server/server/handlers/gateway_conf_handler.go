@@ -38,6 +38,9 @@ func (s *GatewayConfHandler) GetMiddlewareFunc() []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
 		middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 			Timeout: 10 * time.Second,
+			Skipper: func(c echo.Context) bool {
+				return c.Request().URL.Path == "/api/gateway/apply"
+			},
 		}),
 	}
 }
@@ -75,7 +78,12 @@ func (s *GatewayConfHandler) Delete(ctx context.GContext) error {
 }
 
 func (s *GatewayConfHandler) ApplyChange(ctx context.GContext) error {
-	return nil
+	resp, err := s.service.Restart(ctx)
+	if err != nil {
+		common.Log.Error().Err(err).Msg("restart gateway error")
+		return ctx.NoContent(http.StatusInternalServerError)
+	}
+	return ctx.JSON(http.StatusOK, resp)
 }
 
 func (s *GatewayConfHandler) ListAll(ctx context.GContext) error {
