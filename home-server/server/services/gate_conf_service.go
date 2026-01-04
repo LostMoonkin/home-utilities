@@ -38,7 +38,7 @@ func (s *GatewayConfService) ListAll(ctx context.GContext) (*response.APIRespons
 		if file.IsDir() {
 			continue
 		}
-		if strings.Contains(file.Name(), ".conf") {
+		if strings.HasSuffix(file.Name(), ".conf") {
 			fileList = append(fileList, gateway.ConfigFileInfo{
 				Name:    file.Name(),
 				ModTime: file.ModTime(),
@@ -56,7 +56,7 @@ func (s *GatewayConfService) Get(ctx context.GContext, nameList []string) (*resp
 	}
 	resp := make(map[string]string)
 	for _, name := range nameList {
-		if !isValidFilename(name) {
+		if !isValidConfigName(name) {
 			common.Log.Warn().Str("filename", name).Msg("invalid filename.")
 		}
 		content, err := client.ReadFile(path.Join(ctx.GetAppConfig().GatewayConfigPath, name))
@@ -69,7 +69,7 @@ func (s *GatewayConfService) Get(ctx context.GContext, nameList []string) (*resp
 }
 
 func (s *GatewayConfService) Create(ctx context.GContext, name, content string) (*response.APIResponse, error) {
-	if !isValidFilename(name) {
+	if !isValidConfigName(name) {
 		return response.Fail(-1, "invalid config name"), nil
 	}
 	// decode content
@@ -110,7 +110,7 @@ func (s *GatewayConfService) Create(ctx context.GContext, name, content string) 
 }
 
 func (s *GatewayConfService) Update(ctx context.GContext, name, current, expected string) (*response.APIResponse, error) {
-	if !isValidFilename(name) {
+	if !isValidConfigName(name) {
 		return response.Fail(-1, "invalid config name"), nil
 	}
 	client, err := ctx.GetGatewaySSHClient()
@@ -180,7 +180,7 @@ func (s *GatewayConfService) Restart(ctx context.GContext) (*response.APIRespons
 	return response.Success(nil), nil
 }
 
-func isValidFilename(filename string) bool {
+func isValidConfigName(filename string) bool {
 	// Filenames cannot be empty strings
 	if filename == "" {
 		return false
@@ -191,6 +191,10 @@ func isValidFilename(filename string) bool {
 	}
 	// The forward slash is the path separator and cannot be in a filename
 	if strings.ContainsRune(filename, '/') {
+		return false
+	}
+	// The file must has suffix `.conf`
+	if !strings.HasSuffix(filename, ".conf") {
 		return false
 	}
 	return true
