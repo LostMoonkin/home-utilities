@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ConfigFileInfo, getConfigs, APIResponse } from "../lib/api";
-import { cn } from "../lib/utils";
+import { ConfigFileInfo, getConfigs, APIResponse } from "../common/api";
+import { cn } from "../common/utils";
 import { FileText, RefreshCw, Plus } from "lucide-react";
 
 interface ConfigListProps {

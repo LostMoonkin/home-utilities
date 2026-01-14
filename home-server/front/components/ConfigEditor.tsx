@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { getConfig, updateConfig, APIResponse } from "../lib/api";
+import { getConfig, updateConfig, APIResponse } from "../common/api";
 import { toast } from "sonner";
 import { Save, Loader2, RotateCcw, FileText } from "lucide-react";
 
